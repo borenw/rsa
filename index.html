@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSA by Hand — Encoding "EVE" with primes 5 &amp; 7</title>
+<style>
+  :root{
+    --blue:#0052cc; --blue-dark:#0747a6; --blue-bg:#deebff; --blue-soft:#f0f5ff;
+    --ink:#172b4d; --sub:#5e6c84; --line:#dfe1e6; --white:#fff;
+    /* variable colors */
+    --c-p:#2a9d8f;   /* prime p = 5 */
+    --c-q:#e63946;   /* prime q = 7 */
+    --c-n:#7209b7;   /* modulus n = 35 */
+    --c-e:#1d6fe0;   /* enc exponent e = 5 */
+    --c-d:#f72585;   /* dec exponent d = 29 */
+    --c-phi:#6c757d; /* phi = 24 */
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#fff;color:var(--ink);line-height:1.55;font-size:15px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:0 18px 64px}
+  .banner{background:var(--blue);color:#fff;padding:22px 24px;border-radius:0 0 6px 6px;margin-bottom:18px}
+  .banner h1{margin:0;font-size:23px;font-weight:600}
+  .banner p{margin:6px 0 0;color:var(--blue-bg);font-size:14px}
+  .sect-banner{background:var(--blue-soft);border-left:4px solid var(--blue);
+    padding:9px 14px;border-radius:3px;margin:30px 0 14px}
+  .sect-banner h2{margin:0;color:var(--blue-dark);font-size:18px}
+  p{margin:10px 0}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,.mono{font-family:"SF Mono",Menlo,Consolas,monospace}
+  /* index */
+  .toc{background:#fafbfc;border:1px solid var(--line);border-radius:6px;padding:14px 18px}
+  .toc h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub)}
+  .toc ul{margin:0;padding-left:18px}
+  .toc li{margin:3px 0}
+  /* chips for colored variables */
+  .chip{display:inline-block;padding:1px 8px;border-radius:5px;color:#fff;font-weight:700;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.95em;line-height:1.5}
+  .p{background:var(--c-p)} .q{background:var(--c-q)} .n{background:var(--c-n)}
+  .e{background:var(--c-e)} .d{background:var(--c-d)} .phi{background:var(--c-phi)}
+  /* tables */
+  table{border-collapse:collapse;width:100%;margin:8px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:middle}
+  thead th{background:var(--blue);color:#fff;font-weight:600}
+  tbody tr:nth-child(even){background:#f7f9fc}
+  .swatch{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-right:6px}
+  /* flow diagram */
+  .flow{display:flex;flex-direction:column;gap:0;align-items:stretch;margin:14px 0}
+  .box{border:2px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;
+    box-shadow:0 1px 4px rgba(9,30,66,.12)}
+  .box.sender{border-color:var(--c-e)}
+  .box.receiver{border-color:var(--c-d)}
+  .box-head{padding:8px 14px;font-weight:700;color:#fff;font-size:14px;letter-spacing:.02em}
+  .sender .box-head{background:var(--c-e)}
+  .receiver .box-head{background:var(--c-d)}
+  .row{display:flex;border-top:1px solid var(--line)}
+  .row:first-of-type{border-top:none}
+  .row .label{flex:0 0 96px;background:#fafbfc;padding:10px 12px;font-size:11px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em;color:var(--sub);border-right:1px solid var(--line);
+    display:flex;align-items:center}
+  .row .content{padding:12px 14px;font-size:18px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .word{font-family:"SF Mono",Menlo,Consolas,monospace;font-weight:700;letter-spacing:3px;font-size:22px}
+  .algo{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:16px}
+  /* channel arrow */
+  .channel{display:flex;flex-direction:column;align-items:center;padding:6px 0;gap:2px}
+  .channel .pipe{font-size:22px;color:var(--sub);line-height:1}
+  .channel .tag{background:#fff;border:1px dashed var(--sub);border-radius:20px;padding:4px 14px;
+    font-size:13px;color:var(--sub)}
+  .channel .tag b{font-family:"SF Mono",Menlo,Consolas,monospace;letter-spacing:2px;color:var(--ink)}
+  .panel{border-radius:4px;padding:12px 16px;margin:16px 0;font-size:14px}
+  .panel.info{background:var(--blue-bg);border:1px solid #b3d4ff}
+  .panel.warn{background:#fffae6;border:1px solid #ffe380}
+  .panel.note{background:#eae6ff;border:1px solid #c0b6f2}
+  footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--sub)}
+  @media(min-width:680px){
+    .flow{flex-direction:row;align-items:center}
+    .box{flex:1}
+    .channel{flex-direction:column;padding:0 4px}
+    .channel .pipe{transform:rotate(-90deg)}
+  }
+</style>
+</head>
+<body>
+<div class="banner">
+  <h1>RSA by Hand — sending the word "EVE"</h1>
+  <p>Two secret primes turn a message into gibberish, then back again. Colors track each number's job.</p>
+</div>
+
+<div class="wrap">
+
+  <div class="toc">
+    <h3>Contents</h3>
+    <ul>
+      <li><a href="#legend">1. Color legend — who's who</a></li>
+      <li><a href="#keys">2. Building the keys from 5 &amp; 7</a></li>
+      <li><a href="#flow">3. The flow: encode &rarr; send &rarr; decode</a></li>
+      <li><a href="#steps">4. Step-by-step math</a></li>
+      <li><a href="#secure">5. Why it's secret</a></li>
+    </ul>
+  </div>
+
+  <!-- 1 -->
+  <div class="sect-banner" id="legend"><h2>1. Color legend — who's who</h2></div>
+  <p>Each number has one job, and one color it keeps everywhere. Watch out for one trap: the digit <b>5</b> shows up twice in two <i>different</i> roles — as the prime <span class="chip p">p</span> and as the encryption exponent <span class="chip e">e</span> — so they get different colors.</p>
+  <table>
+    <thead><tr><th>Color</th><th>Symbol</th><th>Value</th><th>Job</th><th>Public or secret?</th></tr></thead>
+    <tbody>
+      <tr><td><span class="swatch" style="background:var(--c-p)"></span></td><td><span class="chip p">p</span></td><td>5</td><td>First secret prime</td><td>Secret</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-q)"></span></td><td><span class="chip q">q</span></td><td>7</td><td>Second secret prime</td><td>Secret</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-n)"></span></td><td><span class="chip n">n</span></td><td>35</td><td>Modulus = p&times;q (the "mod 35")</td><td>Public</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-e)"></span></td><td><span class="chip e">e</span></td><td>5</td><td>Encryption exponent (the power to encode)</td><td>Public</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-d)"></span></td><td><span class="chip d">d</span></td><td>29</td><td>Decryption exponent (the power to decode)</td><td>Secret</td></tr>
+      <tr><td><span class="swatch" style="background:var(--c-phi)"></span></td><td><span class="chip phi">&phi;</span></td><td>24</td><td>Helper to find d, = (p-1)(q-1)</td><td>Secret</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 2 -->
+  <div class="sect-banner" id="keys"><h2>2. Building the keys from 5 &amp; 7</h2></div>
+  <table>
+    <thead><tr><th>Step</th><th>Formula</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Pick two primes</td><td><span class="chip p">p</span> = 5,&nbsp; <span class="chip q">q</span> = 7</td><td>secret</td></tr>
+      <tr><td>Multiply them</td><td><span class="chip n">n</span> = <span class="chip p">p</span> &times; <span class="chip q">q</span> = 5 &times; 7</td><td><span class="chip n">35</span></td></tr>
+      <tr><td>Totient (helper)</td><td><span class="chip phi">&phi;</span> = (<span class="chip p">p</span>-1)(<span class="chip q">q</span>-1) = 4 &times; 6</td><td><span class="chip phi">24</span></td></tr>
+      <tr><td>Choose enc exponent</td><td><span class="chip e">e</span> = 5 &nbsp;(shares no factor with <span class="chip phi">24</span>)</td><td><span class="chip e">5</span></td></tr>
+      <tr><td>Find dec exponent</td><td><span class="chip e">e</span>&times;<span class="chip d">d</span> &equiv; 1 (mod <span class="chip phi">24</span>) &rarr; 5&times;<span class="chip d">d</span> = 145</td><td><span class="chip d">29</span></td></tr>
+    </tbody>
+  </table>
+  <div class="panel info">
+    <b>Public key</b> = ( <span class="chip n">n=35</span>, <span class="chip e">e=5</span> ) — anyone can have this to send you a message.<br>
+    <b>Private key</b> = ( <span class="chip n">n=35</span>, <span class="chip d">d=29</span> ) — only you keep this to read it.
+  </div>
+
+  <!-- 3 -->
+  <div class="sect-banner" id="flow"><h2>3. The flow: encode &rarr; send &rarr; decode</h2></div>
+  <div class="flow">
+
+    <div class="box sender">
+      <div class="box-head">SENDER &mdash; encoder</div>
+      <div class="row"><div class="label">Input</div><div class="content"><span class="word">EVE</span></div></div>
+      <div class="row"><div class="label">Algorithm</div><div class="content"><span class="algo">m <sup>&nbsp;</sup>^ <span class="chip e">5</span> &nbsp;mod&nbsp; <span class="chip n">35</span></span></div></div>
+      <div class="row"><div class="label">Output</div><div class="content"><span class="word">JVJ</span></div></div>
+    </div>
+
+    <div class="channel">
+      <div class="pipe">&#10142;</div>
+      <div class="tag">public channel &nbsp;<b>JVJ</b></div>
+      <div class="pipe">&#10142;</div>
+    </div>
+
+    <div class="box receiver">
+      <div class="box-head">RECEIVER &mdash; decoder</div>
+      <div class="row"><div class="label">Input</div><div class="content"><span class="word">JVJ</span></div></div>
+      <div class="row"><div class="label">Algorithm</div><div class="content"><span class="algo">c <sup>&nbsp;</sup>^ <span class="chip d">29</span> &nbsp;mod&nbsp; <span class="chip n">35</span></span></div></div>
+      <div class="row"><div class="label">Output</div><div class="content"><span class="word">EVE</span></div></div>
+    </div>
+
+  </div>
+  <div class="panel note">
+    Anything traveling on the public channel is just <b class="mono">JVJ</b>. Without the secret <span class="chip d">d=29</span>, that's noise — even though the eavesdropper can see <span class="chip n">35</span> and <span class="chip e">5</span>.
+  </div>
+
+  <!-- 4 -->
+  <div class="sect-banner" id="steps"><h2>4. Step-by-step math</h2></div>
+  <p><b>Encoding</b> &mdash; raise each letter's number to the <span class="chip e">e=5</span> power, then take mod <span class="chip n">35</span>:</p>
+  <table>
+    <thead><tr><th>Letter</th><th>m (A=1&hellip;Z=26)</th><th>m ^ <span style="color:#fff">5</span></th><th>mod <span style="color:#fff">35</span></th><th>Cipher letter</th></tr></thead>
+    <tbody>
+      <tr><td>E</td><td>5</td><td>3,125</td><td>10</td><td><b>J</b></td></tr>
+      <tr><td>V</td><td>22</td><td>5,153,632</td><td>22</td><td><b>V</b> <span style="color:var(--sub)">(maps to itself)</span></td></tr>
+      <tr><td>E</td><td>5</td><td>3,125</td><td>10</td><td><b>J</b></td></tr>
+    </tbody>
+  </table>
+  <p style="text-align:center;font-size:18px"><span class="word">EVE</span> &nbsp;&rarr;&nbsp; <span class="word">JVJ</span></p>
+
+  <p style="margin-top:22px"><b>Decoding</b> &mdash; raise each cipher number to the <span class="chip d">d=29</span> power, then mod <span class="chip n">35</span> (done by modular exponentiation, not by writing the giant number):</p>
+  <table>
+    <thead><tr><th>Cipher</th><th>c</th><th>c ^ <span style="color:#fff">29</span> mod <span style="color:#fff">35</span></th><th>Plain letter</th></tr></thead>
+    <tbody>
+      <tr><td>J</td><td>10</td><td>5</td><td><b>E</b></td></tr>
+      <tr><td>V</td><td>22</td><td>22</td><td><b>V</b></td></tr>
+      <tr><td>J</td><td>10</td><td>5</td><td><b>E</b></td></tr>
+    </tbody>
+  </table>
+  <p style="text-align:center;font-size:18px"><span class="word">JVJ</span> &nbsp;&rarr;&nbsp; <span class="word">EVE</span></p>
+
+  <div class="panel warn">
+    <b>Why does V stay V?</b> With these tiny primes, 22 happens to be a "fixed point": 22<sup>5</sup> and 22<sup>29</sup> both come back to 22 mod 35. Real RSA uses primes hundreds of digits long, so fixed points and look-alikes essentially never matter.
+  </div>
+
+  <!-- 5 -->
+  <div class="sect-banner" id="secure"><h2>5. Why it's secret</h2></div>
+  <p>The eavesdropper sees the public key <span class="chip n">35</span> and <span class="chip e">5</span>, and the scrambled <b class="mono">JVJ</b>. To read it, they need <span class="chip d">d=29</span> — and the only way to get <span class="chip d">d</span> is to know <span class="chip phi">&phi;=24</span>, which means knowing the secret primes <span class="chip p">5</span> and <span class="chip q">7</span> that multiply to <span class="chip n">35</span>.</p>
+  <p>Factoring <span class="chip n">35</span> back into <span class="chip p">5</span>&times;<span class="chip q">7</span> is trivial here. But for a 600-digit <span class="chip n">n</span>, factoring it would take classical computers longer than the age of the universe. <b>That factoring step is exactly what Shor's algorithm on a quantum computer would shortcut</b> — the thread we were pulling on.</p>
+
+  <footer>
+    Worked example uses textbook RSA with p=5, q=7, e=5, d=29, n=35. Letters mapped A=1 … Z=26. Color = role, kept consistent throughout.
+  </footer>
+
+</div>
+</body>
+</html>
